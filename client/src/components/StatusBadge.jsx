@@ -33,14 +33,15 @@ export function StatusBadge({ status }) {
     clustered: { label: 'Clustered', color: 'bg-indigo-950/70 text-indigo-300 border-indigo-800' },
     planned: { label: 'Plan Ready', color: 'bg-cyan-950/70 text-cyan-300 border-cyan-800' },
     in_progress: { label: 'In Progress', color: 'bg-amber-950/70 text-amber-300 border-amber-700' },
-    resolved: { label: 'Resolved (Pending Verification)', color: 'bg-emerald-950/70 text-emerald-300 border-emerald-700' },
+    resolved: { label: '✅ Work Done / Completed', color: 'bg-emerald-950 text-emerald-300 border-emerald-600 font-semibold' },
+    completed: { label: '✅ Work Done / Completed', color: 'bg-emerald-950 text-emerald-300 border-emerald-600 font-semibold' },
+    work_done: { label: '✅ Work Done', color: 'bg-emerald-950 text-emerald-300 border-emerald-600 font-semibold' },
     verified: { label: 'Closed & Verified', color: 'bg-emerald-900 text-emerald-200 border-emerald-600' },
     reopened: { label: 'Re-opened (Escalated)', color: 'bg-rose-950 text-rose-300 border-rose-700 animate-pulse' },
     active: { label: 'Active', color: 'bg-blue-950 text-blue-300 border-blue-800' },
     pending_review: { label: 'Awaiting Operator Approval', color: 'bg-amber-950/90 text-amber-300 border-amber-600 font-medium' },
     approved: { label: 'Approved & Dispatched', color: 'bg-emerald-950 text-emerald-300 border-emerald-700' },
     rejected: { label: 'Rejected', color: 'bg-red-950 text-red-300 border-red-800' },
-    completed: { label: 'Completed', color: 'bg-emerald-950 text-emerald-300 border-emerald-700' },
     pending: { label: 'Pending', color: 'bg-slate-800 text-slate-400 border-slate-700' }
   };
 

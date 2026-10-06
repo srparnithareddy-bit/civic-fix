@@ -207,4 +207,81 @@ router.post('/complaints/:id/resolve', optionalAuth, async (req, res) => {
   }
 });
 
+// POST /api/ops/complaints/:id/complete-and-remove - Admin marks work complete and removes from active operational queue
+router.post('/complaints/:id/complete-and-remove', optionalAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { notes } = req.body;
+
+    const existing = await db.getComplaintById(id);
+    if (!existing) {
+      return res.status(404).json({ success: false, error: 'Complaint not found' });
+    }
+
+    const updatedComplaint = await db.updateComplaint(id, {
+      status: 'resolved',
+      work_completed: true,
+      work_completed_at: new Date().toISOString(),
+      removed_from_admin: true,
+      verification_status: 'pending',
+      verification_notes: notes || 'Admin verified physical work finished. Ticket removed from active operational queue.'
+    });
+
+    await db.addAuditLog({
+      entityType: 'complaint',
+      entityId: id,
+      actorType: 'OPERATOR',
+      actorId: req.user ? req.user.full_name : 'Municipal Administrator',
+      action: 'WORK_COMPLETED_AND_REMOVED_BY_ADMIN',
+      reasoning: notes || 'Municipal Administrator marked on-site repair complete and removed ticket from active operational queue. Work is done.',
+      metadata: { tracking_id: updatedComplaint.tracking_id }
+    });
+
+    res.json({
+      success: true,
+      message: 'Work marked complete. Ticket removed from Admin Active Queue. Citizen portal will reflect Work Done.',
+      complaint: updatedComplaint
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// DELETE /api/ops/complaints/:id - Admin deletes ticket from portal (marks work completed for citizen)
+router.delete('/complaints/:id', optionalAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const existing = await db.getComplaintById(id);
+    if (!existing) {
+      return res.status(404).json({ success: false, error: 'Complaint not found' });
+    }
+
+    const updatedComplaint = await db.updateComplaint(id, {
+      status: 'resolved',
+      work_completed: true,
+      work_completed_at: new Date().toISOString(),
+      removed_from_admin: true,
+      verification_status: 'pending'
+    });
+
+    await db.addAuditLog({
+      entityType: 'complaint',
+      entityId: id,
+      actorType: 'OPERATOR',
+      actorId: req.user ? req.user.full_name : 'Municipal Administrator',
+      action: 'WORK_COMPLETED_AND_REMOVED_BY_ADMIN',
+      reasoning: 'Ticket deleted from Admin active portal. Marked as WORK DONE for citizen tracking.',
+      metadata: { tracking_id: updatedComplaint.tracking_id }
+    });
+
+    res.json({
+      success: true,
+      message: 'Ticket removed from admin portal. Citizen portal updated to Work Done.',
+      complaint: updatedComplaint
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;

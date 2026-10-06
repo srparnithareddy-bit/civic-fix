@@ -473,7 +473,7 @@ export default function CitizenPortal() {
                   </p>
                 </div>
                 <div className="flex items-center justify-between pt-2 border-t border-slate-900 text-[11px]">
-                  <StatusBadge status={comp.status} />
+                  <StatusBadge status={comp.work_completed ? 'completed' : comp.status} />
                   <span className="text-blue-400 font-semibold group-hover:translate-x-0.5 transition flex items-center space-x-0.5">
                     <span>Track</span>
                     <ArrowRight className="w-3 h-3" />
@@ -522,7 +522,46 @@ export default function CitizenPortal() {
 
           {/* Tracked Ticket Details */}
           {trackedData && (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="space-y-6">
+              {/* Prominent WORK COMPLETED & DONE Banner */}
+              {(['resolved', 'verified', 'completed'].includes(trackedData.complaint.status) || trackedData.complaint.work_completed) && (
+                <div className="bg-gradient-to-r from-emerald-950 via-teal-950 to-slate-900 border-2 border-emerald-500 rounded-2xl p-6 shadow-2xl shadow-emerald-950/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-start space-x-3.5">
+                    <div className="p-3 bg-emerald-500/20 border border-emerald-500/50 rounded-xl text-emerald-400">
+                      <CheckCircle2 className="w-8 h-8" />
+                    </div>
+                    <div>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-emerald-300 font-extrabold text-lg tracking-wide uppercase">
+                          ✅ Work Done & Completed!
+                        </span>
+                        <span className="bg-emerald-500 text-slate-950 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                          Finished
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-200 mt-1 leading-relaxed max-w-xl">
+                        The municipal department has serviced this incident and marked the physical repairs as <strong>COMPLETELY FINISHED</strong>. The active ticket has been cleared from operations.
+                      </p>
+                      {trackedData.complaint.work_completed_at && (
+                        <div className="text-[11px] text-emerald-400 font-mono mt-2 flex items-center space-x-1.5">
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>Finished by Municipality on: {new Date(trackedData.complaint.work_completed_at).toLocaleString()}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => setVerifyModalOpen(true)}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-5 py-3 rounded-xl transition shrink-0 shadow-lg shadow-emerald-900/40 flex items-center space-x-2 self-start sm:self-auto"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Citizen Verification Sign-Off</span>
+                  </button>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               
               {/* Main Ticket Status (7 cols) */}
               <div className="lg:col-span-7 space-y-6">
@@ -536,7 +575,7 @@ export default function CitizenPortal() {
                       </span>
                       <PriorityBadge priority={trackedData.complaint.priority} />
                     </div>
-                    <StatusBadge status={trackedData.complaint.status} />
+                    <StatusBadge status={trackedData.complaint.work_completed ? 'completed' : trackedData.complaint.status} />
                   </div>
 
                   <h2 className="text-xl font-bold text-white mb-2">{trackedData.complaint.title}</h2>
@@ -639,8 +678,8 @@ export default function CitizenPortal() {
                 </h3>
                 <AuditLogTimeline logs={trackedData.timeline || []} />
               </div>
-
             </div>
+          </div>
           )}
 
         </div>
@@ -702,7 +741,7 @@ export default function CitizenPortal() {
                   </div>
 
                   <div className="flex items-center justify-between pt-3 border-t border-slate-900 text-xs">
-                    <StatusBadge status={comp.status} />
+                    <StatusBadge status={comp.work_completed ? 'completed' : comp.status} />
                     <span className="text-blue-400 font-semibold group-hover:translate-x-1 transition flex items-center space-x-1">
                       <span>View Live Trace</span>
                       <ArrowRight className="w-3.5 h-3.5" />

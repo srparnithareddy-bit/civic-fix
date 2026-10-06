@@ -11,7 +11,8 @@ import {
   ShieldAlert, 
   Zap, 
   ArrowUpRight,
-  MapPin
+  MapPin,
+  Trash2
 } from 'lucide-react';
 import api from '../api/axiosClient';
 import LeafletMap from '../components/LeafletMap';
@@ -22,7 +23,7 @@ export default function OperationsDashboard() {
   const [complaints, setComplaints] = useState([]);
   const [clusters, setClusters] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedFilter, setSelectedFilter] = useState('ALL');
+  const [selectedFilter, setSelectedFilter] = useState('ACTIVE');
   const [refreshing, setRefreshing] = useState(false);
   const [selectedComplaint, setSelectedComplaint] = useState(null);
 
@@ -56,22 +57,39 @@ export default function OperationsDashboard() {
     fetchData();
   };
 
-  const handleResolveComplaint = async (complaintId) => {
+  const handleCompleteAndRemove = async (complaintId, title) => {
+    if (!window.confirm(`Mark work complete and remove "${title}" from the active queue? Citizen portal will show Work Done.`)) {
+      return;
+    }
     try {
-      await api.post(`/ops/complaints/${complaintId}/resolve`, {
-        resolutionNotes: 'Operator confirmed physical field crew completion.'
+      await api.post(`/ops/complaints/${complaintId}/complete-and-remove`, {
+        notes: 'Operator verified work completed on site and cleared ticket from operational queue.'
       });
       fetchData();
     } catch (err) {
-      alert('Failed to update complaint status: ' + err.message);
+      alert('Failed to update ticket: ' + (err.response?.data?.error || err.message));
+    }
+  };
+
+  const handleDeleteComplaint = async (complaintId, title) => {
+    if (!window.confirm(`Delete "${title}" from active operations queue? This will mark the incident as Work Done for the citizen.`)) {
+      return;
+    }
+    try {
+      await api.delete(`/ops/complaints/${complaintId}`);
+      fetchData();
+    } catch (err) {
+      alert('Failed to delete ticket: ' + (err.response?.data?.error || err.message));
     }
   };
 
   const filteredComplaints = complaints.filter(c => {
-    if (selectedFilter === 'CRITICAL') return c.priority === 'CRITICAL';
+    const isDone = c.status === 'resolved' || c.status === 'verified' || c.status === 'completed' || c.work_completed;
+    if (selectedFilter === 'ACTIVE') return !isDone;
+    if (selectedFilter === 'CRITICAL') return c.priority === 'CRITICAL' && !isDone;
+    if (selectedFilter === 'DONE') return isDone;
     if (selectedFilter === 'REOPENED') return c.status === 'reopened';
-    if (selectedFilter === 'PENDING') return ['submitted', 'triaged', 'clustered'].includes(c.status);
-    return true;
+    return true; // 'ALL'
   });
 
   return (
@@ -216,18 +234,24 @@ export default function OperationsDashboard() {
               <span>Incoming Queue ({filteredComplaints.length})</span>
             </h3>
 
-            <div className="flex items-center space-x-1">
-              {['ALL', 'CRITICAL', 'REOPENED', 'PENDING'].map(f => (
+            <div className="flex items-center space-x-1 flex-wrap gap-1">
+              {[
+                { key: 'ACTIVE', label: 'Active Queue' },
+                { key: 'ALL', label: 'All' },
+                { key: 'CRITICAL', label: 'Critical' },
+                { key: 'DONE', label: 'Work Done' },
+                { key: 'REOPENED', label: 'Reopened' }
+              ].map(f => (
                 <button
-                  key={f}
-                  onClick={() => setSelectedFilter(f)}
-                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition ${
-                    selectedFilter === f
-                      ? 'bg-blue-600 text-white'
+                  key={f.key}
+                  onClick={() => setSelectedFilter(f.key)}
+                  className={`px-2 py-1 rounded-lg text-[10px] font-bold transition ${
+                    selectedFilter === f.key
+                      ? 'bg-blue-600 text-white shadow-sm'
                       : 'bg-slate-800 text-slate-400 hover:text-white'
                   }`}
                 >
-                  {f}
+                  {f.label}
                 </button>
               ))}
             </div>
@@ -237,7 +261,7 @@ export default function OperationsDashboard() {
           <div className="space-y-3 overflow-y-auto max-h-[460px] pr-1">
             {filteredComplaints.length === 0 ? (
               <div className="p-8 text-center text-slate-500 text-xs border border-dashed border-slate-800 rounded-xl">
-                No active complaints match filter. Clean queue!
+                {selectedFilter === 'ACTIVE' ? 'Active queue is all clear! No outstanding incidents.' : 'No complaints match filter.'}
               </div>
             ) : (
               filteredComplaints.map(comp => (
@@ -262,19 +286,34 @@ export default function OperationsDashboard() {
 
                   <div className="flex items-center justify-between pt-2 border-t border-slate-900 text-[11px]">
                     <span className="text-slate-500 font-medium">{comp.category}</span>
-                    <div className="flex items-center space-x-2">
-                      {comp.status === 'in_progress' && (
-                        <button
-                          onClick={() => handleResolveComplaint(comp.id)}
-                          className="text-[10px] bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-700 px-2 py-1 rounded transition flex items-center space-x-1"
-                        >
-                          <CheckCircle2 className="w-3 h-3" />
-                          <span>Mark Resolved</span>
-                        </button>
+                    <div className="flex items-center space-x-1.5">
+                      {!(comp.status === 'resolved' || comp.status === 'verified' || comp.status === 'completed' || comp.work_completed) ? (
+                        <>
+                          <button
+                            onClick={() => handleCompleteAndRemove(comp.id, comp.title)}
+                            title="Mark work done and remove from active operational queue"
+                            className="text-[10px] bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-2.5 py-1 rounded-lg transition flex items-center space-x-1 shadow-sm shadow-emerald-950"
+                          >
+                            <CheckCircle2 className="w-3 h-3" />
+                            <span>Work Done</span>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteComplaint(comp.id, comp.title)}
+                            title="Delete from portal (marks work completed for citizen)"
+                            className="text-[10px] bg-red-950/70 hover:bg-red-900 text-red-300 hover:text-white border border-red-800/80 px-2 py-1 rounded-lg transition flex items-center space-x-1"
+                          >
+                            <Trash2 className="w-3 h-3 text-red-400" />
+                            <span>Delete</span>
+                          </button>
+                        </>
+                      ) : (
+                        <span className="text-[10px] text-emerald-300 font-bold bg-emerald-950 border border-emerald-800 px-2 py-0.5 rounded">
+                          ✅ Work Done
+                        </span>
                       )}
                       <Link
                         to={`/clusters/${comp.cluster_id}`}
-                        className="text-[10px] text-blue-400 hover:text-blue-300 flex items-center space-x-0.5 font-semibold"
+                        className="text-[10px] text-blue-400 hover:text-blue-300 flex items-center space-x-0.5 font-semibold ml-1"
                       >
                         <span>Inspect</span>
                         <ArrowUpRight className="w-3 h-3" />

@@ -194,4 +194,41 @@ router.post('/:id/verify', optionalAuth, async (req, res) => {
   }
 });
 
+// DELETE /api/complaints/:id - Admin removes ticket from operational queue (marks Work Done for citizen)
+router.delete('/:id', optionalAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const existing = await db.getComplaintById(id);
+    if (!existing) {
+      return res.status(404).json({ success: false, error: 'Complaint not found' });
+    }
+
+    const updatedComplaint = await db.updateComplaint(id, {
+      status: 'resolved',
+      work_completed: true,
+      work_completed_at: new Date().toISOString(),
+      removed_from_admin: true,
+      verification_status: 'pending'
+    });
+
+    await db.addAuditLog({
+      entityType: 'complaint',
+      entityId: id,
+      actorType: 'OPERATOR',
+      actorId: req.user ? req.user.full_name : 'Municipal Administrator',
+      action: 'WORK_COMPLETED_AND_REMOVED_BY_ADMIN',
+      reasoning: 'Admin removed ticket from operational portal. Status recorded as Work Done for citizen tracking.',
+      metadata: { tracking_id: updatedComplaint.tracking_id }
+    });
+
+    res.json({
+      success: true,
+      message: 'Ticket removed from admin portal. Citizen portal updated to Work Done.',
+      complaint: updatedComplaint
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;
