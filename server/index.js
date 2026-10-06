@@ -30,42 +30,16 @@ app.use((req, res, next) => {
   next();
 });
 
-// Root landing page for http://localhost:5000/
-app.get('/', (req, res) => {
-  res.send(`
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8">
-      <title>CivicFix API Server</title>
-      <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f8fafc; color: #1e293b; padding: 40px; text-align: center; }
-        .card { background: white; max-width: 600px; margin: 0 auto; padding: 32px; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
-        .btn { display: inline-block; background: #2563eb; color: white; padding: 12px 24px; border-radius: 10px; text-decoration: none; font-weight: bold; margin-top: 20px; }
-        .btn:hover { background: #1d4ed8; }
-        .endpoints { text-align: left; background: #f1f5f9; padding: 16px; border-radius: 10px; margin-top: 20px; font-family: monospace; font-size: 13px; }
-      </style>
-    </head>
-    <body>
-      <div class="card">
-        <h1 style="color: #0f172a; margin-bottom: 8px;">🏛️ CivicFix Backend API</h1>
-        <p style="color: #64748b; font-size: 14px;">The Backend & AI Agentic Service is running on Port 5000.</p>
-        
-        <a class="btn" href="http://localhost:3000">👉 Open Frontend UI (Port 3000)</a>
-        
-        <div class="endpoints">
-          <strong>Available API Endpoints:</strong><br>
-          • <a href="/api/health">/api/health</a> - API Status<br>
-          • <a href="/api/complaints">/api/complaints</a> - Live Complaints<br>
-          • <a href="/api/clusters">/api/clusters</a> - Root-Cause Clusters<br>
-          • <a href="/api/ops/metrics">/api/ops/metrics</a> - Operations Metrics<br>
-          • <a href="/api/ai/audit-logs">/api/ai/audit-logs</a> - Autonomous Execution Trace
-        </div>
-      </div>
-    </body>
-    </html>
-  `);
-});
+const path = require('path');
+const fs = require('fs');
+
+const clientDistPath = path.join(__dirname, '../client/dist');
+const hasClientDist = fs.existsSync(clientDistPath);
+
+if (hasClientDist) {
+  // Serve compiled React frontend assets
+  app.use(express.static(clientDistPath));
+}
 
 // API Routes
 app.use('/api/auth', authRoutes);
@@ -83,6 +57,49 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
+
+// Production SPA Fallback or API Landing Page
+if (hasClientDist) {
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api')) return next();
+    res.sendFile(path.join(clientDistPath, 'index.html'));
+  });
+} else {
+  // Dev fallback landing page when client is not built
+  app.get('/', (req, res) => {
+    res.send(`
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <title>CivicFix API Server</title>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f8fafc; color: #1e293b; padding: 40px; text-align: center; }
+          .card { background: white; max-width: 600px; margin: 0 auto; padding: 32px; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
+          .btn { display: inline-block; background: #2563eb; color: white; padding: 12px 24px; border-radius: 10px; text-decoration: none; font-weight: bold; margin-top: 20px; }
+          .btn:hover { background: #1d4ed8; }
+          .endpoints { text-align: left; background: #f1f5f9; padding: 16px; border-radius: 10px; margin-top: 20px; font-family: monospace; font-size: 13px; }
+        </style>
+      </head>
+      <body>
+        <div class="card">
+          <h1 style="color: #0f172a; margin-bottom: 8px;">🏛️ CivicFix Backend API</h1>
+          <p style="color: #64748b; font-size: 14px;">The Backend & AI Agentic Service is running on Port 5000.</p>
+          <a class="btn" href="http://localhost:3000">👉 Open Frontend UI (Port 3000)</a>
+          <div class="endpoints">
+            <strong>Available API Endpoints:</strong><br>
+            • <a href="/api/health">/api/health</a> - API Status<br>
+            • <a href="/api/complaints">/api/complaints</a> - Live Complaints<br>
+            • <a href="/api/clusters">/api/clusters</a> - Root-Cause Clusters<br>
+            • <a href="/api/ops/metrics">/api/ops/metrics</a> - Operations Metrics<br>
+            • <a href="/api/ai/audit-logs">/api/ai/audit-logs</a> - Autonomous Execution Trace
+          </div>
+        </div>
+      </body>
+      </html>
+    `);
+  });
+}
 
 // Global Error Handler
 app.use((err, req, res, next) => {
