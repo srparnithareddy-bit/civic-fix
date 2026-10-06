@@ -53,6 +53,28 @@ export default function CitizenPortal() {
   // Verification Modal State
   const [verifyModalOpen, setVerifyModalOpen] = useState(false);
 
+  // Community Feed State
+  const [recentComplaints, setRecentComplaints] = useState([]);
+  const [loadingRecent, setLoadingRecent] = useState(false);
+
+  const fetchRecentComplaints = async () => {
+    setLoadingRecent(true);
+    try {
+      const res = await api.get('/complaints');
+      if (res.data.success) {
+        setRecentComplaints(res.data.complaints || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch complaints:', err);
+    } finally {
+      setLoadingRecent(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRecentComplaints();
+  }, []);
+
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -83,6 +105,33 @@ export default function CitizenPortal() {
     }
   };
 
+  const handleSearchTracking = async (trackingCodeOrEvent) => {
+    let codeToSearch = trackingSearch;
+    if (typeof trackingCodeOrEvent === 'string' && trackingCodeOrEvent.trim()) {
+      codeToSearch = trackingCodeOrEvent.trim();
+      setTrackingSearch(codeToSearch);
+    } else if (trackingCodeOrEvent && trackingCodeOrEvent.preventDefault) {
+      trackingCodeOrEvent.preventDefault();
+    }
+
+    if (!codeToSearch || !codeToSearch.trim()) return;
+
+    setTrackingLoading(true);
+    setTrackingError('');
+    setTrackedData(null);
+
+    try {
+      const res = await api.get(`/complaints/track/${codeToSearch.trim()}`);
+      if (res.data.success) {
+        setTrackedData(res.data);
+      }
+    } catch (err) {
+      setTrackingError(err.response?.data?.error || 'Complaint not found. Please verify tracking ID.');
+    } finally {
+      setTrackingLoading(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
@@ -104,36 +153,23 @@ export default function CitizenPortal() {
 
       const res = await api.post('/complaints', payload);
       if (res.data.success) {
+        const newTicketId = res.data.complaint.tracking_id;
         setSubmitSuccess(res.data);
         setTitle('');
         setDescription('');
         setMediaPreview(null);
-        setTrackingSearch(res.data.complaint.tracking_id);
+        setTrackingSearch(newTicketId);
+        
+        // Refresh community feed
+        fetchRecentComplaints();
+
+        // Also pre-fetch the tracking data so it's instantly available
+        handleSearchTracking(newTicketId);
       }
     } catch (err) {
       setSubmitError(err.response?.data?.error || 'Failed to submit report. Please check your connection.');
     } finally {
       setSubmitting(false);
-    }
-  };
-
-  const handleSearchTracking = async (e) => {
-    if (e) e.preventDefault();
-    if (!trackingSearch.trim()) return;
-
-    setTrackingLoading(true);
-    setTrackingError('');
-    setTrackedData(null);
-
-    try {
-      const res = await api.get(`/complaints/track/${trackingSearch.trim()}`);
-      if (res.data.success) {
-        setTrackedData(res.data);
-      }
-    } catch (err) {
-      setTrackingError(err.response?.data?.error || 'Complaint not found. Please verify tracking ID.');
-    } finally {
-      setTrackingLoading(false);
     }
   };
 
@@ -157,7 +193,7 @@ export default function CitizenPortal() {
             </p>
           </div>
 
-          <div className="flex items-center space-x-2 bg-slate-950 p-1.5 rounded-xl border border-slate-800 self-start md:self-auto">
+          <div className="flex items-center space-x-2 bg-slate-950 p-1.5 rounded-xl border border-slate-800 self-start md:self-auto flex-wrap gap-1">
             <button
               onClick={() => setActiveTab('submit')}
               className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center space-x-2 ${
@@ -180,12 +216,24 @@ export default function CitizenPortal() {
               <Search className="w-3.5 h-3.5" />
               <span>Live Tracking</span>
             </button>
+            <button
+              onClick={() => setActiveTab('community')}
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center space-x-2 ${
+                activeTab === 'community'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-900/40'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>Community Feed ({recentComplaints.length})</span>
+            </button>
           </div>
         </div>
       </div>
 
       {/* TAB 1: SUBMIT REPORT */}
       {activeTab === 'submit' && (
+        <div className="space-y-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
           {/* Submission Form (7 cols) */}
@@ -212,7 +260,7 @@ export default function CitizenPortal() {
                 <button
                   onClick={() => {
                     setActiveTab('track');
-                    handleSearchTracking();
+                    handleSearchTracking(submitSuccess.complaint.tracking_id);
                   }}
                   className="mt-3 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-3.5 py-1.5 rounded-lg flex items-center space-x-1 transition shadow-md shadow-emerald-950"
                 >
@@ -383,6 +431,59 @@ export default function CitizenPortal() {
           </div>
 
         </div>
+
+        {/* Community Activity Strip */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+              <h3 className="text-sm font-bold text-white">Recent Community Reports & Live Status</h3>
+            </div>
+            <button
+              onClick={() => setActiveTab('community')}
+              className="text-xs text-blue-400 hover:text-blue-300 font-semibold flex items-center space-x-1"
+            >
+              <span>View All ({recentComplaints.length})</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {recentComplaints.slice(0, 6).map((comp) => (
+              <div
+                key={comp.id}
+                onClick={() => {
+                  setActiveTab('track');
+                  handleSearchTracking(comp.tracking_id);
+                }}
+                className="bg-slate-950/80 hover:bg-slate-950 border border-slate-800 hover:border-blue-500/50 p-4 rounded-xl cursor-pointer transition flex flex-col justify-between group shadow-sm"
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="font-mono text-[11px] font-bold text-blue-400 bg-blue-950 px-2 py-0.5 rounded border border-blue-900">
+                      {comp.tracking_id}
+                    </span>
+                    <PriorityBadge priority={comp.priority} />
+                  </div>
+                  <h4 className="text-xs font-bold text-slate-200 group-hover:text-blue-300 transition line-clamp-1 mb-1">
+                    {comp.title}
+                  </h4>
+                  <p className="text-[11px] text-slate-400 line-clamp-2 mb-3">
+                    {comp.description}
+                  </p>
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t border-slate-900 text-[11px]">
+                  <StatusBadge status={comp.status} />
+                  <span className="text-blue-400 font-semibold group-hover:translate-x-0.5 transition flex items-center space-x-0.5">
+                    <span>Track</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
       )}
 
       {/* TAB 2: LIVE TRACKING & CLOSED-LOOP VERIFICATION */}
@@ -545,6 +646,75 @@ export default function CitizenPortal() {
         </div>
       )}
 
+      {/* TAB 3: COMMUNITY FEED */}
+      {activeTab === 'community' && (
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-lg font-bold text-white flex items-center space-x-2">
+                <Layers className="w-5 h-5 text-blue-400" />
+                <span>Community Reports & Public Issues</span>
+              </h2>
+              <p className="text-xs text-slate-400 mt-1">
+                Transparent live public record of all civic incidents being coordinated by autonomous operations.
+              </p>
+            </div>
+            <button
+              onClick={fetchRecentComplaints}
+              className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-700 transition"
+            >
+              Refresh Feed
+            </button>
+          </div>
+
+          {loadingRecent ? (
+            <div className="p-12 text-center text-slate-400 text-sm">Loading community reports...</div>
+          ) : recentComplaints.length === 0 ? (
+            <div className="p-12 text-center text-slate-500 text-sm">No community reports submitted yet.</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {recentComplaints.map((comp) => (
+                <div
+                  key={comp.id}
+                  onClick={() => {
+                    setActiveTab('track');
+                    handleSearchTracking(comp.tracking_id);
+                  }}
+                  className="bg-slate-950/90 hover:bg-slate-950 border border-slate-800 hover:border-blue-500 p-5 rounded-xl cursor-pointer transition flex flex-col justify-between group shadow-lg"
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-2.5">
+                      <span className="font-mono text-xs font-bold text-blue-400 bg-blue-950 px-2 py-0.5 rounded border border-blue-900">
+                        {comp.tracking_id}
+                      </span>
+                      <PriorityBadge priority={comp.priority} />
+                    </div>
+                    <h3 className="text-sm font-bold text-slate-100 group-hover:text-blue-300 transition line-clamp-1 mb-1.5">
+                      {comp.title}
+                    </h3>
+                    <p className="text-xs text-slate-400 line-clamp-2 mb-3 leading-relaxed">
+                      {comp.description}
+                    </p>
+                    <div className="text-[11px] text-slate-500 mb-3 flex items-center space-x-1">
+                      <MapPin className="w-3 h-3 text-slate-400" />
+                      <span className="truncate">{comp.address || 'Reported Location'}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-3 border-t border-slate-900 text-xs">
+                    <StatusBadge status={comp.status} />
+                    <span className="text-blue-400 font-semibold group-hover:translate-x-1 transition flex items-center space-x-1">
+                      <span>View Live Trace</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Closed-Loop Verification Modal */}
       {trackedData && (
         <VerificationModal
@@ -552,7 +722,10 @@ export default function CitizenPortal() {
           isOpen={verifyModalOpen}
           onClose={() => setVerifyModalOpen(false)}
           onVerified={() => {
-            handleSearchTracking();
+            if (trackedData.complaint?.tracking_id) {
+              handleSearchTracking(trackedData.complaint.tracking_id);
+            }
+            fetchRecentComplaints();
           }}
         />
       )}
