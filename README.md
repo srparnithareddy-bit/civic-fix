@@ -7,6 +7,18 @@ CivicFix transforms traditional municipal complaint ticketing into an **Autonomo
 
 ---
 
+## 🌐 Live Portal Access Links
+
+| Portal | URL | Description |
+| :--- | :--- | :--- |
+| 👤 **Public Citizen Portal** | **[http://localhost:3000/](http://localhost:3000/)** *(or `/citizen`)* | Public issue submission (GPS map pinpoint, photo upload) & live ticket tracking |
+| 🏢 **Municipal Admin & Operations Portal** | **[http://localhost:3000/admin](http://localhost:3000/admin)** | Operations control center, SLA breaches, live root-cause cluster map, & incident feed |
+| ⚡ **AI Action Center (HITL)** | **[http://localhost:3000/admin/action-center](http://localhost:3000/admin/action-center)** | Operator review workbench to approve AI plans, adjust budgets, and dispatch crews |
+| 🔐 **Sign In / Demo Login** | **[http://localhost:3000/login](http://localhost:3000/login)** | 1-click login for Operator or Citizen demo accounts |
+| 🔌 **Backend API Health** | **[http://localhost:5000/api/health](http://localhost:5000/api/health)** | Express + Gemini autonomous agent REST API |
+
+---
+
 ## ⚡ Key Highlights & Core Features
 
 1. **Root-Cause Complaint Clustering:** 
@@ -25,6 +37,7 @@ CivicFix transforms traditional municipal complaint ticketing into an **Autonomo
 ```
 CivicFix/
 ├── package.json                   # Root workspace scripts
+├── README.md                      # Complete system documentation & walkthrough guide
 ├── server/                        # Backend & AI Engine (Express + Gemini + Supabase)
 │   ├── agents/
 │   │   ├── geminiService.js       # Gemini API integration & structured JSON parser
@@ -51,7 +64,8 @@ CivicFix/
     │   ├── api/                   # Axios client with auth interceptors
     │   ├── context/               # AuthContext for session management
     │   ├── components/
-    │   │   ├── Navbar.jsx         # Modern slate navigation & agent status pill
+    │   │   ├── Navbar.jsx         # Modern slate navigation & 2-portal switcher
+    │   │   ├── AdminLayout.jsx    # Municipal Admin Portal wrapper & navigation
     │   │   ├── LeafletMap.jsx     # Geospatial cluster & pin visualizer
     │   │   ├── StatusBadge.jsx    # High-contrast priority & status indicators
     │   │   ├── AuditLogTimeline.jsx# Agent reasoning execution trace
@@ -74,7 +88,6 @@ In the project root, run:
 ```bash
 npm run install:all
 ```
-*(Or install inside `server/` and `client/` individually with `npm install`)*
 
 ### 2. Configure Environment Variables (Optional)
 In `server/.env`:
@@ -105,13 +118,13 @@ npm run client
 
 ## 🧪 Demo Walkthrough: Test the Closed Loop
 
-1. Open `http://localhost:3000` (Citizen Portal).
-2. Submit a report (e.g. *"Water pipe burst flooding street"*, category: *Water & Sewage Management*).
-3. Observe real-time autonomous pipeline:
+1. **Open the Citizen Portal:** Go to **[http://localhost:3000/](http://localhost:3000/)**
+2. **Submit a report:** (e.g. *"Water pipe burst flooding street"*, category: *Water & Sewage Management*).
+3. **Observe real-time autonomous pipeline:**
    - **Triage Agent:** Classifies as `HIGH`/`CRITICAL`, assigns 6h SLA deadline.
    - **Cluster Agent:** Groups into an active Root-Cause cluster.
    - **Planning Agent:** Formulates a 3-step action plan with crew and machinery needs.
-4. Navigate to **Operations Dashboard** (`/ops`) or **AI Action Center** (`/action-center`):
+4. **Open the Admin Portal:** Go to **[http://localhost:3000/admin](http://localhost:3000/admin)** or **[http://localhost:3000/admin/action-center](http://localhost:3000/admin/action-center)**:
    - Review the AI proposal, inspect budget and tasks, and click **"Approve & Authorize Crew Dispatch"**.
-5. Back in the citizen tracking view, click **"Verify Resolution"**:
+5. **Back in the Citizen tracking view:** Click **"Verify Resolution"**:
    - Test clicking **"No, Still Broken"** to watch the **Autonomous Verification Agent** reopen the ticket, escalate priority to `CRITICAL`, and trigger an auto-replan!
